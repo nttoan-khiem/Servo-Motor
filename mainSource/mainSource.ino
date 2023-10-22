@@ -15,9 +15,8 @@ float currentSpeed = 0;
 float currentAcceleration = 0;
 void initSystem();
 void USART_Transmit(char data);
-float pid(float kp, float ki, float kd, int position);
+float pid(float kp, float ki, float kd);
 ISR(TIMER0_OVF_vect){
-  TCNT0 = 0x9A;
   if(controlVariable1 > 0){
     OCR0A = (unsigned char)controlVariable1; 
     PORTC |= (1<<3); 
@@ -53,26 +52,11 @@ ISR(INT1_vect){
     position2 --;
   }
 }
-ISR(TIMER1_OVF_vect){
-  TCNT1H = 0xff;
-  TCNT1L = 0xef;
-  positionRequest = positionRequest + currentSpeed;
-  if(positionRequest > 20000){
-    positionRequest -= 20000;
-    position1 -= 20000;
-    position2 -= 20000;
-  }else if(positionRequest < -20000){
-    positionRequest += 20000;
-    position1 += 20000;
-    position2 += 20000;
-  }
-}
 int main(){
   initSystem();
-  currentSpeed = 1.23;
   while(1){
-    controlVariable1 = pid(1,0.002,0.1,position1);
-    controlVariable2 = pid(1,0.002,0.1,position2);
+    controlVariable1 = 100;
+    controlVariable2 = pid(5,0,0);
     USART_Transmit('=');
     USART_Transmit('\n');
     if(position1 < 0){
@@ -82,13 +66,28 @@ int main(){
       USART_Transmit(((int)(-position1)/10)%10 + 0x30);
       USART_Transmit(((int)(-position1)%10) + 0x30);
       USART_Transmit('\n');
-      }
+      }else{
     USART_Transmit((int) position1/1000 + 0x30);
     USART_Transmit(((int) position1/100)%10 + 0x30);
     USART_Transmit(((int) position1/10)%10 + 0x30);
     USART_Transmit(((int) position1%10) + 0x30);
     USART_Transmit('\n');
-    if(positionRequest < 0){
+      }
+    if(position2 < 0){
+      USART_Transmit('-');
+      USART_Transmit((int)(-position2)/1000 + 0x30);
+      USART_Transmit(((int)(-position2)/100)%10 + 0x30);
+      USART_Transmit(((int)(-position2)/10)%10 + 0x30);
+      USART_Transmit(((int)(-position2)%10) + 0x30);
+      USART_Transmit('\n');
+      }else{
+    USART_Transmit((int) position2/1000 + 0x30);
+    USART_Transmit(((int) position2/100)%10 + 0x30);
+    USART_Transmit(((int) position2/10)%10 + 0x30);
+    USART_Transmit(((int) position2%10) + 0x30);
+    USART_Transmit('\n');
+      }
+  /*  if(positionRequest < 0){
       USART_Transmit('-');
       USART_Transmit((int)(- positionRequest)/1000 + 0x30);
       USART_Transmit(((int)(- positionRequest)/100)%10 + 0x30);
@@ -102,7 +101,7 @@ int main(){
     USART_Transmit(((int) positionRequest%10) + 0x30);
     USART_Transmit('\n');
     USART_Transmit('=');
-    USART_Transmit('\n');
+    USART_Transmit('\n'); */
   }
 }
 
@@ -148,17 +147,22 @@ void USART_Transmit(char data)
   /* Put data into buffer, sends the data */
   UDR0 = data;
 }
-float pid(float kp, float ki, float kd, int position){
+float pid(float kp, float ki, float kd){
   float result = 1.0;
-  float error =1.0*(positionRequest - position);
+  float error =1.0*(position1 - position2);
   interal += error;
+  if(interal > 20){
+    interal = 20;
+  }else if(interal < -20){
+    interal = -20;
+  }
   float divi = error - oldError;
   result = kp*error + ki*interal + kd*divi;
   oldError = error;
-  if(result > 100){
-    result = 99;
-  }else if(result < -100){
-    result = -99;
+  if(result > 255){
+    result = 255;
+  }else if(result < -255){
+    result = -255;
   }
   return result;
 }

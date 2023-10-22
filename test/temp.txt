@@ -8,15 +8,12 @@ int controlVariable1;
 int controlVariable2;
 unsigned int position1 = 0;
 unsigned int position2 = 0;
-unsigned char doneFar = 1;
-unsigned char doneNear = 0;
-unsigned char clearToNear = 1;
 int interal;
 int oldError;
 int error;
 int currentSpeed;
 unsigned char pause = 0;
-unsigned long timerSys = 0;
+unsigned int timerSys = 0;
 unsigned char coreControl = 1;
 unsigned int timerChange = 0;
 int poiter = 0;
@@ -27,8 +24,6 @@ void writeDataLCD(unsigned char data);
 void writeCommandLCD(unsigned char command);
 void writeUpperLine(char data[17]);
 void writeLowwerLine(char data[17]);
-void near();
-void far();
 ISR(INT0_vect){   //PD2 pin 2
   if((PIND>>4)&0x01){  //PD4 pin4
     position1 ++;
@@ -167,11 +162,6 @@ int main(){
       writeDataLCD(upperLine[i]);
     }
     saisotemp = position1 - position2;
-    if(saisotemp >= -4 && saisotemp <= 4){
-      clearToNear = 1;
-    }else{
-      clearToNear = 0;
-    }
     writeCommandLCD(0x80+7);
     if(saisotemp >= 0){
       writeDataLCD(' ');
@@ -206,20 +196,11 @@ int main(){
         speedUp = 1;
         writeCommandLCD(0x80+15);
         writeDataLCD('!');
-      }else if(codeInput == 2){   //slow 
-        far();/////
-        doneFar = 1;
-        doneNear = 0;
+      }else if(codeInput == 2){   //slow down
         slowDown = 1;
         writeCommandLCD(0x80+15);
         writeDataLCD('!');
       }else if(codeInput == 3){
-        if(doneFar == 0){
-          far();
-          timerSys = 0;
-          doneFar = 1;
-          doneNear = 0;
-        }
         coreControl = 0;
         if(coreControl == 0){
           writeCommandLCD(0x80+15);
@@ -255,42 +236,26 @@ int main(){
         }
       }
     }
-    if(timerSys % 2 == 0 && controlVariable1 < 220 && speedUp == 1){  //speed up function
+    if(timerSys > 2 && controlVariable1 < 220 && speedUp == 1){  //speed up function
       controlVariable1 += 2;
       controlVariable2 = controlVariable1;
+      timerSys = 0;
     }
     if(controlVariable1 >= 220 && speedUp == 1){      //handle stop speedup
       speedUp = 0;
       writeCommandLCD(0x80+15);
       writeDataLCD(' ');
     }
-    if(timerSys % 2 == 0 && controlVariable1 > 5 && slowDown == 1){    //slowdown function
+    if(timerSys > 2 && controlVariable1 > 5 && slowDown == 1){    //slowdown function
       controlVariable1 -= 2;
       controlVariable2 = controlVariable1;
+      timerSys = 0;
     }
     if(controlVariable1 <= 5 && slowDown == 1){     //handle stop slowdown function
       slowDown = 0;
       pause = 1;
       writeCommandLCD(0x80+15);
       writeDataLCD(' ');
-    }
-    saisotemp = position1 - position2;
-    if(saisotemp >= -4 && saisotemp <= 4){
-      clearToNear = 1;
-    }else{
-      clearToNear = 0;
-    }
-    if(timerSys > 50 && doneFar == 1 && clearToNear == 1 && pause == 0){
-      near();
-      doneNear = 1;
-      doneFar = 0;
-      timerSys = 0;
-    }
-    if(timerSys > 50 && doneNear == 1){
-      far();
-      doneNear = 0;
-      doneFar = 1;
-      timerSys = 0;
     }
   }
 }
@@ -315,66 +280,22 @@ void initSystem(){
   //Pinconfig
   DDRB = 0x0f;
   PORTB = 0xf0;
-  DDRD = 0x43;  //all pin is input, 2 pin lowest output, PD6 output
+  DDRD = 0x00;  //All pin of port D is input pin
   PORTD = 0xff; // pull up 
   DDRC = 0xff;  
   //==========
   writeCommandLCD(0x02);
   writeCommandLCD(0x28);
   writeCommandLCD(0x0c);
+  //Init USART
+  UBRR0H = (unsigned char)((F_CPU/16/9600 - 1)>>8);
+  UBRR0L = (unsigned char)(F_CPU/16/9600 -1);
+  UCSR0B |= (1<<4); //enable RX bit 4
+  UCSR0B |= (1<<3); //enable TX bit 3
+  UCSR0A |= (1<<6);
+  UCSR0C = 0b00000110;  //Asynchronous USART //disable parity //1 bit stop //8bit data // polo raide
+  //==========
 }
-
-void near(){
-  PORTD &= 0b10111100;
-  PORTD |= 0b00000011;
-  _delay_ms(500);
-  while(1){
-    if(((PINB>>4)&0x01)==0){
-      PORTD &= 0b11111110;
-      //break;
-    }
-    if(((PINB>>5)&0x01)==0){
-      PORTD &= 0b11111101;
-      //break;
-    }
-    if((PORTD & 0x03) == 0x00) break;
-  }
-  /*
-  PORTD |= 0b00000010;
-  _delay_ms(500);
-  while(1){
-    if(((PINB>>5)&0x01)==0){
-      PORTD &= 0b11111101;
-      break;
-    }
-  }*/
-}
-
-void far(){
-  PORTD |= 0b01000011;
-  PORTD &= 0b11111100;
-  _delay_ms(500);
-  while(1){
-    if(((PINB>>4)&0x01)==0){
-      PORTD |= 0b00000001;
-      //break;
-    }
-    if(((PINB>>5)&0x01)==0){
-      PORTD |= 0b00000010;
-      //break;
-    }
-    if((PORTD & 0x03) == 0x03) break;
-  }
-  /*PORTD &= 0b11111101;
-  _delay_ms(500);
-  while(1){
-    if(((PINB>>5)&0x01)==0){
-      PORTD |= 0b00000010;
-      break;
-    }
-  }*/
-}
-
 void writeDataLCD(unsigned char data){
   PORTC |= (1<<4);
   PORTB = (data>>4) | 0xf0;
