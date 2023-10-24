@@ -110,7 +110,7 @@ ISR(TIMER1_OVF_vect){
     }
     timerChange = 0;
   }
-  if(timerSys % 2 == 0 && controlVariable1 <= 240 && speedUp == 1){  //speed up function
+  if(timerSys % 3 == 0 && controlVariable1 <= 240 && speedUp == 1){  //speed up function
       controlVariable1 += 2;
       controlVariable2 = controlVariable1;
       if(controlVariable1 >= 240){
@@ -119,7 +119,7 @@ ISR(TIMER1_OVF_vect){
         writeDataLCD(' ');
       }
   }
-  if(timerSys % 2 == 0 && controlVariable1 >= 5 && slowDown == 1){    //slowdown function
+  if(timerSys % 3 == 0 && controlVariable1 >= 5 && slowDown == 1){    //slowdown function
     controlVariable1 -= 2;
     controlVariable2 = controlVariable1;
     if(controlVariable1 <= 5){
