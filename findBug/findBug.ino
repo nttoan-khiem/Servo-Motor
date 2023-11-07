@@ -7,6 +7,7 @@
 int controlVariable1;
 int controlVariable2;
 int giaToc = 10;
+unsigned char errorSys = 0;
 unsigned long timeToMove1 = 0;
 unsigned char slowDone = 0;
 unsigned char speedDone = 0;
@@ -37,15 +38,27 @@ void halfFar(unsigned long long time);
 ISR(INT0_vect){   //PD2 pin 2
   if((PIND>>4)&0x01){  //PD4 pin4
     position1 ++;
+    if(controlVariable1 < 0){
+      errorSys = 1;
+    }
   }else{
     position1 --;
+    if(controlVariable1 > 0){
+      errorSys = 1;
+    }
   }
 }
 ISR(INT1_vect){   //PD3 pin 3
   if((PIND>>5)&0x01){ //PD5 pin 5
     position2 ++;
+    if(controlVariable1 < 0){
+      errorSys = 1;
+    }
   }else{
     position2 --;
+    if(controlVariable1 > 0){
+      errorSys = 1;
+    }
   }
 }
 ISR(TIMER0_OVF_vect){
@@ -240,6 +253,13 @@ int main(){
       codeEffect += 1;
       if(codeEffect >= 4){
         codeEffect = 0;
+      }
+      if(errorSys == 1){
+        writeCommandLCD(0x80);
+        while(1){
+          writeDataLCD("E");
+          writeDataLCD("!");
+        }
       }
       uperLine[0]='A'; uperLine[1]='U'; uperLine[2]='T';
       uperLine[3]='O'; uperLine[4]=' '; uperLine[5]='E';
